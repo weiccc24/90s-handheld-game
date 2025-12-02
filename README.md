@@ -132,9 +132,9 @@ The case was designed in [Fusion 360 / Tinkercad] to resemble an industrial hand
 
 ## 👥 Credits
 
-- **Author:** [Your Name]  
-- **Course:** Sensors and Circuits (Fall 202X)  
-- **School:** [Your University/School]  
+- **Author:** Wei Chang
+- **Course:** Sensors and Circuits (Fall 2025)  
+- **School:** University of Washington GIX
 
 > Disclaimer: No actual nuclear reactors were harmed in the making of this game.
 
