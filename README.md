@@ -58,7 +58,7 @@ The system uses CircuitPython. Below is the wiring map for the Xiao ESP32C3.
 | NeoPixel Data | D3       | LED signal               |
 | Battery (+)   | BAT+     | Via slide switch         |
 
-*(A Fritzing or hand-drawn diagram )*
+![Circuit Diagram](Documentation/game_circuit_diagram.png)
 
 ---
 
