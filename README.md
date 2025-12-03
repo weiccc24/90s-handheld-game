@@ -93,18 +93,60 @@ Upload the following from the Adafruit CircuitPython Bundle to the `lib` folder 
 ## 📂 Project Structure
 
 ```
-├── code.py # Main game logic (state machine)
-├── lib/ # CircuitPython libraries
-├── enclosure/ # STL files for 3D printing
-│ ├── Case_Bottom.stl
-│ └── Case_Lid.stl
-├── diagrams/ # Wiring maps and system architecture
-└── README.md # You are here
+.
+├── Documentation/
+│   ├── game_circuit_diagram.kicad_sch   # Hardware Schematic (KiCad)
+|   └── system_diagram.png               # System Diagram
+├── src/
+│   ├── main.py                          # Main Game Logic (The Reactor Core)
+│   └── rotary_encoder.py                # Custom Driver for the Encoder
+├── .gitignore                           # Git configuration
+└── README.md                            # Project Documentation
 ```
 
 ---
 
 ## 🧠 System Architecture
+
+```mermaid
+graph TD
+    %% --- Node Styles ---
+    classDef power fill:#ff7675,stroke:#333,stroke-width:2px,color:white;
+    classDef mcu fill:#6c5ce7,stroke:#333,stroke-width:4px,color:white;
+    classDef group fill:#dfe6e9,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef device fill:#00b894,stroke:#333,stroke-width:2px,color:white;
+
+    %% --- Power Block ---
+    Battery["3.7V LiPo Battery<br/>(Power Source)"]:::power
+    Switch["Slide Switch<br/>(On/Off Control)"]:::power
+
+    %% --- Main Controller ---
+    MCU["Xiao ESP32-C3<br/>(Microcontroller)"]:::mcu
+
+    %% --- Logic Grouping ---
+    Inputs["Input System"]:::group
+    Outputs["Output System"]:::group
+
+    %% --- Components ---
+    ADXL["ADXL345 Accelerometer<br/>(I2C: Shake Detection)"]:::device
+    Encoder["Rotary Encoder & Button<br/>(GPIO: User Controls)"]:::device
+    NeoPixel["NeoPixel LED<br/>(GPIO: Status Light)"]:::device
+    OLED["SSD1306 OLED Display<br/>(I2C: Game Interface)"]:::device
+
+    %% --- Connections ---
+    Battery --> Switch
+    Switch --> MCU
+
+    MCU --> Inputs
+    MCU --> Outputs
+
+    Inputs -->|"I2C Bus"| ADXL
+    Inputs -->|"Digital GPIO"| Encoder
+
+    Outputs -->|"Digital GPIO"| NeoPixel
+    Outputs -->|"I2C Bus"| OLED
+
+```
 
 The code is structured as a finite state machine (FSM):
 
