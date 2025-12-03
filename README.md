@@ -96,6 +96,7 @@ Upload the following from the Adafruit CircuitPython Bundle to the `lib` folder 
 .
 ├── Documentation/
 │   ├── game_circuit_diagram.kicad_sch   # Hardware Schematic (KiCad)
+|   ├── game_circuit_diagram.png
 |   └── system_diagram.png               # System Diagram
 ├── src/
 │   ├── main.py                          # Main Game Logic (The Reactor Core)
@@ -164,7 +165,7 @@ The code is structured as a finite state machine (FSM):
 
 ## 🖨️ Enclosure Design
 
-The case was designed in [Fusion 360 / Tinkercad] to resemble an industrial handheld remote.
+The case was designed in [Fusion 360] to resemble an industrial handheld remote.
 
 - Material: PLA  
 - Layer Height: 0.2 mm  
