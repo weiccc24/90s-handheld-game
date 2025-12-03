@@ -1,8 +1,6 @@
 # Reactor Core: A 90s-Style Handheld Reflex Game ☢️
 
-Reactor Core is an embedded electronic handheld game inspired by 90s classics like Bop-It and Brain Warp. Built as a final project for [Insert Class Name], this device challenges players to stabilize a volatile nuclear reactor by physically manipulating the device in response to rapid-fire commands.
-
-*(A photo of the finished device.)*
+Reactor Core is an embedded electronic handheld game inspired by 90s classics like Bop-It and Brain Warp. Built as a final project for Sensors & Circuits at University of Washington, this device challenges players to stabilize a volatile nuclear reactor by physically manipulating the device in response to rapid-fire commands.
 
 ---
 
