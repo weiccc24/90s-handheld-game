@@ -10,15 +10,15 @@ The goal is simple: keep the reactor stable. The screen will display a command, 
 
 ### The 4 Moves
 
-- `VENT` – Press the rotary encoder button down.  
+- `VENT` – Press the rotary encoder button down once.
+- `PING` – Press the rotary encoder button down twice.  
 - `QUAKE` – Shake the entire device (accelerometer input).  
-- `LEFT` – Twist the knob counter-clockwise.  
-- `RIGHT` – Twist the knob clockwise.  
+- `TWIST` – Twist the knob either clockwise or counter-clockwise.   
 
 ### Progression
 
-- 3 Difficulty Modes: Easy (3s), Medium (2s), Hard (1s)  
-- 10 Levels: The game speeds up as you progress through 10 stages  
+- 3 Difficulty Modes: Easy (~3s), Medium (~2s), Hard (~1s)  
+- 10 Levels: The game speeds up as you progress through 10 stages. Every 5 win, the game will go 1 level up.
 - Win Condition: Survive all 10 levels to stabilize the core  
 - Lose Condition: Wrong move or running out of time results in a meltdown (Game Over)
 
