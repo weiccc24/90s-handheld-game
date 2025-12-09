@@ -17,11 +17,13 @@ from rotary_encoder import RotaryEncoder
 
 # --- HARDWARE SETUP ---
 
+# 0. RELEASE RESOURCES FIRST
+displayio.release_displays()
+
 # 1. I2C Setup
 i2c = busio.I2C(board.D5, board.D4)
 
 # 2. OLED Display Setup
-displayio.release_displays()
 display_bus = i2cdisplaybus.I2CDisplayBus(i2c, device_address=0x3C)
 display = adafruit_displayio_ssd1306.SSD1306(display_bus, width=128, height=64)
 
@@ -29,27 +31,44 @@ display = adafruit_displayio_ssd1306.SSD1306(display_bus, width=128, height=64)
 accel = adafruit_adxl34x.ADXL345(i2c)
 
 # 4. Rotary Encoder Setup
-# Increased debounce_ms to 5 for better stability
 encoder = RotaryEncoder(board.D0, board.D1, debounce_ms=5)
 
-# 5. Manual Button Setup
-class SimpleButton:
+# 5. Smart Button Setup
+class SmartButton:
     def __init__(self, pin):
         self.pin = digitalio.DigitalInOut(pin)
         self.pin.direction = digitalio.Direction.INPUT
         self.pin.pull = digitalio.Pull.UP
         self.prev_state = self.pin.value
-        self.fell = False 
+        self.click_count = 0
+        self.last_click_time = 0 # Tracks when button was last touched
+        self.detected_action = None 
 
     def update(self):
+        self.detected_action = None
         cur_state = self.pin.value
-        self.fell = False 
+        now = time.monotonic()
+        
+        # Detect Falling Edge (Press)
         if cur_state != self.prev_state:
-            if not cur_state: # Pressed
-                self.fell = True
+            if not cur_state: # Button Down
+                if (now - self.last_click_time) < 0.35: 
+                    self.click_count += 1
+                else:
+                    self.click_count = 1 
+                self.last_click_time = now # Update the timestamp
         self.prev_state = cur_state
+        
+        # Resolve Action
+        if self.click_count == 1 and (now - self.last_click_time) > 0.35:
+            self.detected_action = "SINGLE"
+            self.click_count = 0
+            
+        if self.click_count == 2:
+            self.detected_action = "DOUBLE"
+            self.click_count = 0
 
-button = SimpleButton(board.D2)
+button = SmartButton(board.D2)
 
 # 6. NeoPixel Setup
 pixel = neopixel.NeoPixel(board.D3, 1, brightness=0.3)
@@ -84,12 +103,14 @@ def calibrate_accelerometer():
 
 def detect_quake():
     x, y, z = accel.acceleration
-    # Apply calibration
     x -= x_offset
     y -= y_offset
     z -= z_offset
     magnitude = sqrt(x*x + y*y + z*z)
-    return magnitude > 15.0
+    
+    # Increased Threshold from 15.0 to 20.0
+    # This prevents small button vibrations from triggering it
+    return magnitude > 20.0
 
 def display_text(line1="", line2="", line3="", line4=""):
     main_group = displayio.Group()
@@ -103,58 +124,58 @@ def display_text(line1="", line2="", line3="", line4=""):
             main_group.append(text_area)
     display.root_group = main_group
 
+def get_difficulty_name(lvl):
+    if lvl <= 3: return "EASY"
+    if lvl <= 7: return "MEDIUM"
+    return "HARD"
+
 # --- GAME LOGIC ---
 
 def run_menu():
     global game_state, level, time_limit, last_position
     
+    diff_text = get_difficulty_name(level)
     pixel.fill((0, 0, 255))
-    display_text("REACTOR CORE", "Twist to Select", "Btn to Start", f"Level: {level}")
+    display_text("SELECT LEVEL", f"Level: {level}", f"({diff_text})", "Twist to Change")
     
     while True:
         encoder.update()
         button.update()
         
-        if button.fell:
+        if button.detected_action: # Any click starts game
             game_state = "PLAY"
             score = 0
             return 
 
         current_position = encoder.position
         if current_position != last_position:
-            if current_position > last_position:
-                level = min(10, level + 1)
-            else:
-                level = max(1, level - 1)
+            level += 1
+            if level > 10: level = 1
             last_position = current_position
-            display_text("REACTOR CORE", "Twist to Select", "Btn to Start", f"Level: {level}")
-            time_limit = max(0.8, 3.0 - (level * 0.2))
+            time_limit = max(1.2, 3.0 - (level * 0.18))
+            diff_text = get_difficulty_name(level)
+            display_text("SELECT LEVEL", f"Level: {level}", f"({diff_text})", "Btn to Start")
 
 def run_game():
     global game_state, score, level, time_limit, last_position
     
-    # 1. COOLDOWN PHASE (Crucial for fairness)
     display_text("", "GET READY...", "", "")
-    pixel.fill((0, 0, 0)) # LED Off
+    pixel.fill((0, 0, 0)) 
     
     cooldown_start = time.monotonic()
-    while (time.monotonic() - cooldown_start) < 0.5:
-        # "Flush" the encoder buffer
+    while (time.monotonic() - cooldown_start) < 0.8:
         encoder.update()
         time.sleep(0.01)
 
-    # 2. SELECT COMMAND
-    commands = ["VENT", "QUAKE", "LEFT", "RIGHT"]
+    commands = ["VENT", "PING", "QUAKE", "TWIST"]
     target = random.choice(commands)
     
     pixel.fill((255, 100, 0))
     display_text("WARNING!", "ACTION REQUIRED:", f"> {target} <", f"Time: {time_limit:.1f}s")
     
     start_time = time.monotonic()
-    
-    # 3. SNAPSHOT ENCODER
     start_enc_pos = encoder.position 
-    last_debug_pos = start_enc_pos # Used for printing only when changed
+    last_debug_pos = start_enc_pos
     
     print(f"\n--- NEW ROUND: Target={target} ---") 
     
@@ -163,55 +184,54 @@ def run_game():
         button.update()
         
         current_enc_pos = encoder.position
-        is_shaking = detect_quake()
         
+        # 1. READ RAW SHAKE DATA
+        raw_shake = detect_quake()
+        
+        # 2. APPLY "NOISE FILTER"
+        # If the button was pressed recently (within 0.5s), IGNORE shakes.
+        # This stops the "button click vibration" from registering as a Quake.
+        time_since_click = time.monotonic() - button.last_click_time
+        if time_since_click < 0.5:
+            is_shaking = False
+        else:
+            is_shaking = raw_shake # Safe to read sensor
+            
+        delta = current_enc_pos - start_enc_pos
         input_detected = None
         
-        # Calculate Logic
-        delta = current_enc_pos - start_enc_pos
-        
-        # --- DEBUG PRINT ---
-        # Only print if the value changed so we don't spam the console
-        if current_enc_pos != last_debug_pos:
-            print(f"Encoder Moving -> Pos: {current_enc_pos} | Delta: {delta}")
-            last_debug_pos = current_enc_pos
-        # -------------------
-        
-        # INPUT DETECTION LOGIC
-        if button.fell:
+        # --- INPUT DETECTION ---
+        if button.detected_action == "SINGLE":
             input_detected = "VENT"
-            print("Action Detected: VENT")
+            print("Action: VENT (Single Tap)")
+        elif button.detected_action == "DOUBLE":
+            input_detected = "PING"
+            print("Action: PING (Double Tap)")
         elif is_shaking:
             input_detected = "QUAKE"
-            print("Action Detected: QUAKE")
-            
-        # FORGIVING ROTATION LOGIC (Threshold = 3)
-        elif delta >= 3:
-            input_detected = "RIGHT"
-            print(f"Action Detected: RIGHT (Delta {delta} >= 3)")
-        elif delta <= -3:
-            input_detected = "LEFT"
-            print(f"Action Detected: LEFT (Delta {delta} <= -3)")
+            print("Action: QUAKE")
+        elif abs(delta) >= 1:
+            input_detected = "TWIST"
+            print("Action: TWIST")
             
         if input_detected:
-            # Check Result
             if input_detected == target:
                 print(">> SUCCESS <<")
                 score += 1
                 pixel.fill((0, 255, 0))
                 display_text("CORE STABLE", "Great Job!", f"Score: {score}", "")
                 time.sleep(0.5) 
+                
                 if score % 5 == 0:
                     level += 1
-                    time_limit = max(0.8, time_limit - 0.2)
+                    if level > 10: level = 10
+                    time_limit = max(1.2, time_limit - 0.18)
                 return 
             else:
-                # WRONG MOVE
-                print(f">> FAIL: Expected {target}, Got {input_detected} <<")
+                print(f">> FAIL: Wanted {target}, Got {input_detected} <<")
                 game_state = "GAMEOVER"
                 return
     
-    # TIMEOUT
     print(">> FAIL: TIMEOUT <<")
     game_state = "GAMEOVER"
 
@@ -223,7 +243,7 @@ def run_gameover():
     while True:
         encoder.update()
         button.update()
-        if button.fell:
+        if button.detected_action:
             game_state = "MENU"
             score = 0
             break
@@ -238,4 +258,3 @@ while True:
         run_game()
     elif game_state == "GAMEOVER":
         run_gameover()
-        
